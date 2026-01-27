@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApexTrader-Stacks | Bridge & Escrow</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 800px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 2rem; }
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #5643cc, #e94560);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .subtitle { color: #a8a8a8; font-size: 1.1rem; }
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      backdrop-filter: blur(10px);
+    }
+    .card h2 { color: #fff; margin-bottom: 1rem; font-size: 1.3rem; }
+    .btn {
+      display: inline-block;
+      padding: 0.8rem 1.5rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      border: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-decoration: none;
+      color: white;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary {
+      background: linear-gradient(90deg, #5643cc, #e94560);
+    }
+    .btn-primary:hover { box-shadow: 0 8px 25px rgba(233, 69, 96, 0.3); }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .btn-success { background: #22c55e; }
+    .btn-warning { background: #f59e0b; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-group { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+
+    .wallet-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .wallet-info { display: flex; align-items: center; gap: 0.5rem; }
+    .wallet-address {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    .connected-dot {
+      width: 10px; height: 10px;
+      background: #22c55e;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .status-item {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .status-label { font-size: 0.8rem; color: #888; margin-bottom: 0.3rem; }
+    .status-value { font-size: 1.1rem; font-weight: 600; }
+    .status-value.success { color: #4ade80; }
+    .status-value.warning { color: #fbbf24; }
+    .status-value.error { color: #f87171; }
+
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .input-group input {
+      flex: 1;
+      padding: 0.8rem 1rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+      font-size: 1rem;
+    }
+    .input-group input::placeholder { color: #666; }
+    .input-group input:focus {
+      outline: none;
+      border-color: #5643cc;
+    }
+
+    .tx-status {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      display: none;
+    }
+    .tx-status.pending { background: rgba(245, 158, 11, 0.2); display: block; }
+    .tx-status.success { background: rgba(34, 197, 94, 0.2); display: block; }
+    .tx-status.error { background: rgba(239, 68, 68, 0.2); display: block; }
+    .tx-status a { color: #60a5fa; }
+
+    .steps { counter-reset: step; list-style: none; }
+    .steps li {
+      counter-increment: step;
+      padding: 0.8rem 0 0.8rem 3rem;
+      position: relative;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .steps li:last-child { border-bottom: none; }
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      width: 2rem; height: 2rem;
+      background: linear-gradient(90deg, #5643cc, #e94560);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 2rem;
+      color: #666;
+      font-size: 0.85rem;
+    }
+    footer a { color: #5643cc; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ApexTrader-Stacks</h1>
+      <p class="subtitle">Automated Trading with Stacks Blockchain Escrow</p>
+    </header>
+
+    <!-- Wallet Connection -->
+    <div class="card">
+      <div class="wallet-section">
+        <div>
+          <h2>Wallet</h2>
+          <p id="wallet-status-text">Connect your Stacks wallet to manage escrow</p>
+        </div>
+        <div id="wallet-disconnected">
+          <button id="connect-btn" class="btn btn-primary" onclick="connectWallet()">
+            Connect Wallet
+          </button>
+        </div>
+        <div id="wallet-connected" class="wallet-info hidden">
+          <span class="connected-dot"></span>
+          <span class="wallet-address" id="wallet-address">SP2...</span>
+          <button class="btn btn-secondary" onclick="disconnectWallet()">Disconnect</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Escrow Management -->
+    <div class="card">
+      <h2>Escrow Management</h2>
+      <div id="escrow-status">
+        <div class="status-grid">
+          <div class="status-item">
+            <div class="status-label">Your Escrow Balance</div>
+            <div class="status-value success" id="escrow-balance">0.00 USDCx</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Your Wallet USDCx</div>
+            <div class="status-value" id="wallet-usdcx">0.00 USDCx</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">STX (for fees)</div>
+            <div class="status-value" id="wallet-stx">0.0000 STX</div>
+          </div>
+          <div class="status-item">
+            <div class="status-label">Bot Authorized</div>
+            <div class="status-value" id="bot-authorized">-</div>
+          </div>
+        </div>
+
+        <!-- Deposit -->
+        <div class="input-group">
+          <input type="number" id="deposit-amount" placeholder="Amount to deposit" step="0.01" min="0">
+          <button id="deposit-btn" class="btn btn-success" onclick="depositToEscrow()" disabled>
+            Deposit
+          </button>
+        </div>
+
+        <!-- Withdraw -->
+        <div class="input-group">
+          <input type="number" id="withdraw-amount" placeholder="Amount to withdraw" step="0.01" min="0">
+          <button id="withdraw-btn" class="btn btn-warning" onclick="withdrawFromEscrow()" disabled>
+            Withdraw
+          </button>
+        </div>
+
+        <!-- Authorize Bot -->
+        <div class="btn-group">
+          <button id="authorize-btn" class="btn btn-primary" onclick="authorizeBot()" disabled>
+            Authorize Trading Bot
+          </button>
+        </div>
+
+        <!-- Transaction Status -->
+        <div id="tx-status" class="tx-status"></div>
+      </div>
+    </div>
+
+    <!-- Bridge -->
+    <div class="card">
+      <h2>Bridge USDC to USDCx</h2>
+      <p>Bridge your USDC from Ethereum to USDCx on Stacks using the official Stacks Bridge (powered by Circle xReserve).</p>
+      <div class="btn-group">
+        <a href="https://bridge.stacks.co/usdc/eth/stx" target="_blank" rel="noopener" class="btn btn-primary">
+          Open USDCx Bridge
+        </a>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card">
+      <h2>How It Works</h2>
+      <ol class="steps">
+        <li><strong>Bridge USDC</strong> - Use Hermes to convert USDC to USDCx on Stacks</li>
+        <li><strong>Connect Wallet</strong> - Connect your Leather/Hiro wallet above</li>
+        <li><strong>Deposit to Escrow</strong> - Transfer USDCx to the escrow smart contract</li>
+        <li><strong>Authorize Bot</strong> - Allow ApexTrader to execute trades on your behalf</li>
+        <li><strong>Auto-Trade</strong> - Bot trades within your escrow limits</li>
+        <li><strong>Withdraw</strong> - Reclaim your funds from escrow anytime</li>
+      </ol>
+    </div>
+
+    <footer>
+      <p>Built for the USDCx on Stacks Hackathon 2026</p>
+      <p>
+        <a href="https://www.freqtrade.io/" target="_blank">Freqtrade</a> |
+        <a href="https://www.stacks.co/" target="_blank">Stacks</a> |
+        <a href="https://www.circle.com/" target="_blank">Circle</a>
+      </p>
+    </footer>
+  </div>
+
+  <!-- Stacks Connect via CDN -->
+  <script type="module">
+    import { showConnect, openContractCall } from 'https://esm.sh/@stacks/connect@7.4.0';
+    import {
+      uintCV,
+      principalCV,
+      PostConditionMode,
+      makeStandardSTXPostCondition,
+      FungibleConditionCode
+    } from 'https://esm.sh/@stacks/transactions@6.9.0';
+    import { StacksMainnet, StacksTestnet } from 'https://esm.sh/@stacks/network@6.8.0';
+
+    // Config - matches backend
+    const ESCROW_CONTRACT = 'SP2FY55DK4NESNH6E5CJSNZP2CQ5PZ5BX64B29FYG.usdcx-escrow';
+    const NETWORK = new StacksMainnet();
+    const BOT_ADDRESS = 'SP2FY55DK4NESNH6E5CJSNZP2CQ5PZ5BX64B29FYG';
+
+    // USDCx token contract (mainnet)
+    const USDCX_CONTRACT = 'SP3Y2ZSH8P7D50B0VBTSX11S7XSG24M1VB9YFQA4K.token-susdc';
+
+    let userAddress = null;
+
+    // Make functions available globally
+    window.connectWallet = async function() {
+      showConnect({
+        appDetails: {
+          name: 'ApexTrader-Stacks',
+          icon: window.location.origin + '/favicon.ico',
+        },
+        onFinish: (data) => {
+          userAddress = data.userSession.loadUserData().profile.stxAddress.mainnet;
+          onWalletConnected(userAddress);
+        },
+        onCancel: () => {
+          console.log('User cancelled wallet connection');
+        },
+        userSession: undefined,
+      });
+    };
+
+    window.disconnectWallet = function() {
+      userAddress = null;
+      document.getElementById('wallet-connected').classList.add('hidden');
+      document.getElementById('wallet-disconnected').classList.remove('hidden');
+      document.getElementById('wallet-status-text').textContent = 'Connect your Stacks wallet to manage escrow';
+      document.getElementById('deposit-btn').disabled = true;
+      document.getElementById('withdraw-btn').disabled = true;
+      document.getElementById('authorize-btn').disabled = true;
+    };
+
+    function onWalletConnected(address) {
+      userAddress = address;
+      document.getElementById('wallet-connected').classList.remove('hidden');
+      document.getElementById('wallet-disconnected').classList.add('hidden');
+      document.getElementById('wallet-address').textContent =
+        address.slice(0, 8) + '...' + address.slice(-6);
+      document.getElementById('wallet-status-text').textContent = 'Wallet connected';
+
+      // Enable buttons
+      document.getElementById('deposit-btn').disabled = false;
+      document.getElementById('withdraw-btn').disabled = false;
+      document.getElementById('authorize-btn').disabled = false;
+
+      // Load balances
+      loadUserBalances(address);
+    }
+
+    async function loadUserBalances(address) {
+      try {
+        // Fetch STX balance
+        const stxRes = await fetch(`https://api.mainnet.hiro.so/extended/v1/address/${address}/stx`);
+        const stxData = await stxRes.json();
+        const stxBalance = (parseInt(stxData.balance) / 1000000).toFixed(4);
+        document.getElementById('wallet-stx').textContent = `${stxBalance} STX`;
+
+        // Fetch escrow balance from our API
+        const escrowRes = await fetch('/api/v1/stacks/status', {
+          headers: { 'Authorization': 'Basic ' + btoa('freqtrader:SuperSecurePassword') }
+        });
+        const escrowData = await escrowRes.json();
+        document.getElementById('escrow-balance').textContent =
+          `${escrowData.escrow_balance?.toFixed(2) || '0.00'} USDCx`;
+
+        const authEl = document.getElementById('bot-authorized');
+        authEl.textContent = escrowData.is_bot_authorized ? 'Yes' : 'No';
+        authEl.className = `status-value ${escrowData.is_bot_authorized ? 'success' : 'warning'}`;
+
+      } catch (err) {
+        console.error('Failed to load balances:', err);
+      }
+    }
+
+    window.depositToEscrow = async function() {
+      const amount = parseFloat(document.getElementById('deposit-amount').value);
+      if (!amount || amount <= 0) {
+        showTxStatus('error', 'Please enter a valid amount');
+        return;
+      }
+
+      const amountMicro = Math.floor(amount * 1000000); // 6 decimals
+
+      showTxStatus('pending', 'Please confirm the transaction in your wallet...');
+
+      try {
+        await openContractCall({
+          network: NETWORK,
+          contractAddress: ESCROW_CONTRACT.split('.')[0],
+          contractName: ESCROW_CONTRACT.split('.')[1],
+          functionName: 'deposit',
+          functionArgs: [uintCV(amountMicro)],
+          postConditionMode: PostConditionMode.Deny,
+          onFinish: (data) => {
+            showTxStatus('success',
+              `Transaction submitted! <a href="https://explorer.stacks.co/txid/${data.txId}?chain=mainnet" target="_blank">View on Explorer</a>`
+            );
+            // Refresh balances after a delay
+            setTimeout(() => loadUserBalances(userAddress), 5000);
+          },
+          onCancel: () => {
+            showTxStatus('error', 'Transaction cancelled');
+          },
+        });
+      } catch (err) {
+        showTxStatus('error', `Error: ${err.message}`);
+      }
+    };
+
+    window.withdrawFromEscrow = async function() {
+      const amount = parseFloat(document.getElementById('withdraw-amount').value);
+      if (!amount || amount <= 0) {
+        showTxStatus('error', 'Please enter a valid amount');
+        return;
+      }
+
+      const amountMicro = Math.floor(amount * 1000000);
+
+      showTxStatus('pending', 'Please confirm the transaction in your wallet...');
+
+      try {
+        await openContractCall({
+          network: NETWORK,
+          contractAddress: ESCROW_CONTRACT.split('.')[0],
+          contractName: ESCROW_CONTRACT.split('.')[1],
+          functionName: 'withdraw',
+          functionArgs: [uintCV(amountMicro)],
+          postConditionMode: PostConditionMode.Deny,
+          onFinish: (data) => {
+            showTxStatus('success',
+              `Withdrawal submitted! <a href="https://explorer.stacks.co/txid/${data.txId}?chain=mainnet" target="_blank">View on Explorer</a>`
+            );
+            setTimeout(() => loadUserBalances(userAddress), 5000);
+          },
+          onCancel: () => {
+            showTxStatus('error', 'Transaction cancelled');
+          },
+        });
+      } catch (err) {
+        showTxStatus('error', `Error: ${err.message}`);
+      }
+    };
+
+    window.authorizeBot = async function() {
+      showTxStatus('pending', 'Please confirm bot authorization in your wallet...');
+
+      try {
+        await openContractCall({
+          network: NETWORK,
+          contractAddress: ESCROW_CONTRACT.split('.')[0],
+          contractName: ESCROW_CONTRACT.split('.')[1],
+          functionName: 'authorize-bot',
+          functionArgs: [principalCV(BOT_ADDRESS)],
+          postConditionMode: PostConditionMode.Deny,
+          onFinish: (data) => {
+            showTxStatus('success',
+              `Bot authorized! <a href="https://explorer.stacks.co/txid/${data.txId}?chain=mainnet" target="_blank">View on Explorer</a>`
+            );
+            setTimeout(() => loadUserBalances(userAddress), 5000);
+          },
+          onCancel: () => {
+            showTxStatus('error', 'Authorization cancelled');
+          },
+        });
+      } catch (err) {
+        showTxStatus('error', `Error: ${err.message}`);
+      }
+    };
+
+    function showTxStatus(type, message) {
+      const el = document.getElementById('tx-status');
+      el.className = `tx-status ${type}`;
+      el.innerHTML = message;
+    }
+
+    // Check if already connected on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load initial status
+      loadUserBalances(null);
+    });
+  </script>
+</body>
+</html>
