@@ -4,11 +4,20 @@ Handles deposits, withdrawals, and trade approvals.
 """
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from freqtrade.stacks.client import StacksClient
+from freqtrade.stacks.clarity import (
+    encode_uint128,
+    encode_int128,
+    encode_string_ascii,
+    encode_principal,
+)
 
 logger = logging.getLogger(__name__)
+
+# Default transaction fee in microSTX (0.01 STX)
+DEFAULT_TX_FEE = 10000
 
 
 class EscrowManager:
@@ -141,6 +150,10 @@ class EscrowManager:
             f"trade_id={trade_id}, expiry={expiry_blocks}"
         )
 
+        if amount <= 0:
+            logger.error(f"Invalid trade amount: {amount}")
+            return None
+
         if self.dry_run:
             # Mock the trade approval
             mock_id = self._mock_trade_counter
@@ -155,16 +168,36 @@ class EscrowManager:
             logger.info(f"[DRY-RUN] Trade approval mock tx: {tx_id}")
             return tx_id
 
-        # In production, build and sign contract-call transaction
-        # For MVP, we log and return a placeholder
+        # Production: build and broadcast trade approval transaction
         try:
-            # TODO: Implement actual transaction signing
-            # This requires stacks-transactions library or similar
-            tx_id = self.client.generate_mock_tx_id(f"approve-{trade_id}")
-            logger.warning(
-                f"Production trade approval not implemented. Mock tx: {tx_id}"
+            # Check if contract is paused
+            if self.is_paused():
+                logger.error("Cannot request trade approval: contract is paused")
+                return None
+
+            # Convert STX to microSTX
+            micro_stx = int(amount * 1_000_000)
+
+            # Build arguments:
+            # - amount: uint128
+            # - trade_id: string-ascii (external identifier)
+            # - expiry_blocks: uint128
+            args = [
+                encode_uint128(micro_stx),
+                encode_string_ascii(trade_id),
+                encode_uint128(expiry_blocks),
+            ]
+
+            # Sign and broadcast
+            tx_id = self.client.sign_and_broadcast(
+                contract_id=self.contract_id,
+                function_name="request-trade",
+                function_args=args,
             )
+
+            logger.info(f"Trade approval transaction broadcast: {tx_id}")
             return tx_id
+
         except Exception as e:
             logger.error(f"Error requesting trade approval: {e}")
             return None
@@ -200,25 +233,50 @@ class EscrowManager:
             )
             return tx_id
 
-        # Production implementation
+        # Production: build and broadcast execute trade transaction
         try:
-            tx_id = self.client.generate_mock_tx_id(f"execute-{trade_id}")
-            logger.warning(
-                f"Production trade execution not implemented. Mock tx: {tx_id}"
+            # Check if contract is paused
+            if self.is_paused():
+                logger.error("Cannot execute trade: contract is paused")
+                return None
+
+            # Convert P/L to microSTX (signed)
+            micro_stx_pl = int(profit_loss * 1_000_000)
+
+            # Build arguments:
+            # - trade_id: uint128
+            # - profit_loss: int128 (signed value)
+            args = [
+                encode_uint128(trade_id),
+                encode_int128(micro_stx_pl),
+            ]
+
+            # Sign and broadcast
+            tx_id = self.client.sign_and_broadcast(
+                contract_id=self.contract_id,
+                function_name="execute-trade",
+                function_args=args,
             )
+
+            logger.info(f"Trade execution transaction broadcast: {tx_id}")
             return tx_id
+
         except Exception as e:
             logger.error(f"Error executing trade: {e}")
             return None
 
     def deposit(self, amount: float) -> str | None:
         """
-        Deposit STX into escrow (dry-run simulation).
+        Deposit STX into escrow contract.
 
         :param amount: Amount in STX to deposit
         :return: Transaction ID if successful
         """
         logger.info(f"Depositing to escrow: {amount} STX")
+
+        if amount <= 0:
+            logger.error(f"Invalid deposit amount: {amount}")
+            return None
 
         if self.dry_run:
             self._mock_balance += amount
@@ -229,18 +287,45 @@ class EscrowManager:
             )
             return tx_id
 
-        # Production: would build deposit transaction
-        logger.warning("Production deposit not implemented")
-        return None
+        # Production: build and broadcast deposit transaction
+        try:
+            # Check if contract is paused
+            if self.is_paused():
+                logger.error("Cannot deposit: contract is paused")
+                return None
+
+            # Convert STX to microSTX
+            micro_stx = int(amount * 1_000_000)
+
+            # Build argument: amount as uint128
+            args = [encode_uint128(micro_stx)]
+
+            # Sign and broadcast
+            tx_id = self.client.sign_and_broadcast(
+                contract_id=self.contract_id,
+                function_name="deposit",
+                function_args=args,
+            )
+
+            logger.info(f"Deposit transaction broadcast: {tx_id}")
+            return tx_id
+
+        except Exception as e:
+            logger.error(f"Error depositing to escrow: {e}")
+            return None
 
     def withdraw(self, amount: float) -> str | None:
         """
-        Withdraw STX from escrow (dry-run simulation).
+        Withdraw STX from escrow contract.
 
         :param amount: Amount in STX to withdraw
         :return: Transaction ID if successful
         """
         logger.info(f"Withdrawing from escrow: {amount} STX")
+
+        if amount <= 0:
+            logger.error(f"Invalid withdrawal amount: {amount}")
+            return None
 
         if self.dry_run:
             if amount > self._mock_balance:
@@ -256,9 +341,32 @@ class EscrowManager:
             )
             return tx_id
 
-        # Production: would build withdraw transaction
-        logger.warning("Production withdrawal not implemented")
-        return None
+        # Production: build and broadcast withdraw transaction
+        try:
+            # Check if contract is paused
+            if self.is_paused():
+                logger.error("Cannot withdraw: contract is paused")
+                return None
+
+            # Convert STX to microSTX
+            micro_stx = int(amount * 1_000_000)
+
+            # Build argument: amount as uint128
+            args = [encode_uint128(micro_stx)]
+
+            # Sign and broadcast
+            tx_id = self.client.sign_and_broadcast(
+                contract_id=self.contract_id,
+                function_name="withdraw",
+                function_args=args,
+            )
+
+            logger.info(f"Withdrawal transaction broadcast: {tx_id}")
+            return tx_id
+
+        except Exception as e:
+            logger.error(f"Error withdrawing from escrow: {e}")
+            return None
 
     def get_trade(self, trade_id: int) -> dict | None:
         """
