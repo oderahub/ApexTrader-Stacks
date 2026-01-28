@@ -80,6 +80,7 @@
     (asserts! (> amount u0) ERR_INVALID_AMOUNT)
     (try! (stx-transfer? amount tx-sender (as-contract tx-sender)))
     (map-set balances tx-sender (+ (get-balance tx-sender) amount))
+     (print { event: "deposit", user: tx-sender, amount: amount })
     (ok amount)
   )
 )
